@@ -1,6 +1,6 @@
 # BIOS_Project2_TorsionAngles
 ## Required packages
-Script has to be launched in linux terminal. If using windows operating system it is advised to use WSL with packages installed as follows:
+The script should be launched in the Linux terminal. If using the Windows operating system, it is advised to use WSL with these required packages installed:
 * python 3.1.6
 * Biopython 
 * matplotlib
