@@ -1,33 +1,55 @@
+import sys
 from Bio import PDB
 import numpy as np
 from Bio.PDB import PDBList
 from Bio.PDB.vectors import calc_dihedral
 from math import degrees
+from bio.PDB.DSSP import DSSP
 
 def main():
-    # download desired structure (may modify it to get argv)
-    pdb_id = "1EHZ"
+    # checking arguments in terminal
+    mode, pdb_id = check_command_input()
+
+    # Downloading the wanted structure form PDB database
     pdb_filename = download_structure(pdb_id)
 
     # Parse the structure from the downloaded file
     parser = PDB.PDBParser(QUIET=True)
     structure = parser.get_structure(pdb_id, pdb_filename)
 
-    # Calculate torsion angles
-    residue_angles = process_structure(structure)
+    if mode == "rna":
+        # Calculate torsion angles
+        residue_angles = process_structure(structure)
 
-    # Print the results to output
-    print_test(residue_angles)
+        # Print the results to output
+        print_test(residue_angles)
 
-    # Save data to matrix
-    matrix = save_matrix(residue_angles, structure)
+        # Save data to matrix
+        matrix = save_matrix(residue_angles, structure)
 
-    # Printing the matrix for testing
-    print(matrix)
+        # Printing the matrix for testing
+        print(matrix)
 
-    # Saving results for angles in a file
-    save_to_file(matrix,"RNA_angles.txt")
+        # Saving results for angles in a file
+        save_to_file(matrix,"RNA_angles.txt")
+    elif mode == "protein":
+    # TODO: processing protein chain
 
+
+def check_command_input():# get command line arguments 1- mode either protein/RNA 2- pdb ID
+    if len(sys.argv) != 3:
+        print("Usage: python Torsion_Angles.py protein/RNA [pdb_ID]")
+        sys.exit(1)
+    elif sys.argv[1] not in ["protein", "rna"]:
+        print("Error: Argument must be 'protein' or 'RNA'.")
+        sys.exit(1)
+    elif len(sys.argv[2]) != 4:
+        print("Error: PDB identifier should be 4 characters long")
+        sys.exit(1)
+    else:
+        mode = sys.argv[1]
+        pdb_id = sys.argv[2]
+    return mode, pdb_id
 def download_structure(pdb_id):
     # Download the structure using the PDB ID
     pdbl = PDBList() # necessary structure
