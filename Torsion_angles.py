@@ -4,7 +4,7 @@ import numpy as np
 from Bio.PDB import PDBList
 from Bio.PDB.vectors import calc_dihedral
 from math import degrees
-from bio.PDB.DSSP import DSSP
+from Bio.PDB.DSSP import DSSP
 
 def main():
     # checking arguments in terminal
@@ -12,7 +12,7 @@ def main():
 
     # Downloading the wanted structure form PDB database
     pdb_filename = download_structure(pdb_id)
-
+    print(pdb_filename)
     # Parse the structure from the downloaded file
     parser = PDB.PDBParser(QUIET=True)
     structure = parser.get_structure(pdb_id, pdb_filename)
@@ -33,7 +33,18 @@ def main():
         # Saving results for angles in a file
         save_to_file(matrix,"RNA_angles.txt")
     elif mode == "protein":
-    # TODO: processing protein chain
+        model = structure[0] # Assuming that there is only one model in the whole structure
+        dssp = DSSP(model, pdb_filename, dssp="mkdssp")
+        print(dssp)
+    #     protein_angles = np.empty()
+    #     for res_id, (aa, ss, phi, psi) in enumerate(dssp):
+    #         data.append({
+    #             'ResidueID': res_id + 1,  # Residue numbering starts from 1
+    #             'AminoAcid': aa,
+    #             'SecondaryStructure': ss,
+    #             'PhiAngle': phi,
+    #             'PsiAngle': psi
+    #         })
 
 
 def check_command_input():# get command line arguments 1- mode either protein/RNA 2- pdb ID
@@ -50,6 +61,7 @@ def check_command_input():# get command line arguments 1- mode either protein/RN
         mode = sys.argv[1]
         pdb_id = sys.argv[2]
     return mode, pdb_id
+
 def download_structure(pdb_id):
     # Download the structure using the PDB ID
     pdbl = PDBList() # necessary structure
