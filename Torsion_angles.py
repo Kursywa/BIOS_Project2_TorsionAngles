@@ -5,13 +5,19 @@ from Bio.PDB import PDBList
 from Bio.PDB.vectors import calc_dihedral
 from math import degrees
 from Bio.PDB.DSSP import DSSP
+import matplotlib.pyplot as plt
+from Bio.PDB import Polypeptide
+import os
 
 def main():
     # checking arguments in terminal
     mode, pdb_id = check_command_input()
 
     # Downloading the wanted structure form PDB database
-    pdb_filename = download_structure(pdb_id)
+        # obsolete cause pdblist gave weird format aso dssp couldnt read it
+    # pdb_filename = download_structure(pdb_id)
+    pdb_filename = "./" + pdb_id + ".pdb"
+
     print(pdb_filename)
     # Parse the structure from the downloaded file
     parser = PDB.PDBParser(QUIET=True)
@@ -32,19 +38,13 @@ def main():
 
         # Saving results for angles in a file
         save_to_file(matrix,"RNA_angles.txt")
-    elif mode == "protein":
-        model = structure[0] # Assuming that there is only one model in the whole structure
-        dssp = DSSP(model, pdb_filename, dssp="mkdssp")
-        print(dssp)
-    #     protein_angles = np.empty()
-    #     for res_id, (aa, ss, phi, psi) in enumerate(dssp):
-    #         data.append({
-    #             'ResidueID': res_id + 1,  # Residue numbering starts from 1
-    #             'AminoAcid': aa,
-    #             'SecondaryStructure': ss,
-    #             'PhiAngle': phi,
-    #             'PsiAngle': psi
-    #         })
+
+    elif mode == "protein": # mode configured at the start
+        phi_angles, psi_angles, secondary_structure = calculate_phi_psi(structure, pdb_filename)
+
+        filename, file_extension = os.path.splitext(os.path.basename(pdb_filename))
+        plot_ramachandran(phi_angles, psi_angles, secondary_structure,
+                          os.path.basename(filename + "_" + file_extension[1:]))
 
 
 def check_command_input():# get command line arguments 1- mode either protein/RNA 2- pdb ID
@@ -70,7 +70,7 @@ def download_structure(pdb_id):
 
 
 def process_structure(structure):
-    angles = {
+    angles = { # exact atoms which are taken into account in calculating torsion angles
         "alpha": ("O3'", "P", "O5'", "C5'"),
         "beta": ("P", "O5'", "C5'", "C4'"),
         "gamma": ("O5'", "C5'", "C4'", "C3'"),
@@ -91,7 +91,7 @@ def process_structure(structure):
                 for angle_name, atoms in angles.items():
                     try:
                         match angle_name:
-                            #cases are for every angle that has to take into account previous or next residue
+                            # cases are for every angle that has to take into account previous or next residue
                             case "alpha":
                                 if (i == 0):
                                     raise NoPrev
@@ -161,6 +161,61 @@ def save_matrix(all_residue_angles, structure):
 def save_to_file(matrix, output_file_path):
     np.savetxt(output_file_path, matrix, fmt='%s', delimiter='\t', header="α\tβ\tγ\tδ\tε\tζ\tχ", comments='',
                encoding='utf-8')
+
+def calculate_phi_psi(structure, pdb_filename):
+    # List initilization
+    phi_angles = []
+    psi_angles = []
+    secondary_structure = []
+
+    for model in structure:
+        for chain in model:
+            polypeptides = Polypeptide.Polypeptide(
+                chain)  # creating Polupeptide object for chain for it to be analyzed
+            phi_psi_angles = polypeptides.get_phi_psi_list()  # getting phi psi angles
+            dssp = PDB.DSSP(model, pdb_filename)
+
+            residues = list(chain.get_residues())  # getting residues
+            for phi, psi in phi_psi_angles:
+                if phi is not None and psi is not None:
+                    residue_index = polypeptides.get_phi_psi_list().index(
+                        (phi, psi))  # getting residue index via torsion angles
+                    residue_id = (chain.id, residues[residue_index].get_id()[
+                        1])  # getting residue identifier made od chain_id and residue index
+                    phi_angles.append(np.degrees(phi))  # putting phi and psi angles into list converting them
+                    psi_angles.append(np.degrees(psi)) # a priori to degrees from radians
+                    secondary_structure.append(
+                        dssp[residue_id][2])  # dssp used for secondary structure
+
+    return phi_angles, psi_angles, secondary_structure
+
+def plot_ramachandran(phi_angles, psi_angles, secondary_structure, pdb_filename):
+    plt.figure(figsize=(8, 6))  # creating new figure object 8x6 inches
+
+    # Mapping all types of secondary structures but highlighting helices as red and beta sheets as blue
+    color_map = {'H': 'red', 'E': 'blue'}
+
+    # Rscattering points on the plot and coloring them according to colormap
+    for phi, psi, ss in zip(phi_angles, psi_angles, secondary_structure):
+        plt.scatter(phi, psi, s=10, alpha=0.5, edgecolors='none', c=color_map[ss])  # Adding points to plot
+
+    # Creating plot annotations
+    plt.title('Ramachandran Plot with Secondary Structure Coloring')
+    plt.xlabel('Phi Angle (degrees)')
+    plt.ylabel('Psi Angle (degrees)')
+    plt.xlim(-180, 180)
+    plt.ylim(-180, 180)
+    plt.axhline(0, color='black', linewidth=0.5)
+    plt.axvline(0, color='black', linewidth=0.5)
+    plt.grid(color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+
+    legend_labels = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10, label=label)
+                     # Creating
+                     for label, color in color_map.items()]
+    plt.legend(handles=legend_labels, title='Secondary Structure',
+               loc='upper right')  # Creating legend
+    plt.savefig(pdb_filename + '_ramachandran_plot.pdf')  # Saving to file. File should not be in use
+    plt.show()
 
 if __name__ == "__main__":
     main()
